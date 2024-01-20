@@ -1,0 +1,139 @@
+bookTable:
+  Type: AWS::DynamoDB::Table
+  Properties:
+    AttributeDefinitions:
+      - AttributeName: "pk"
+        AttributeType: "S"
+    KeySchema:
+      - AttributeName: "pk"
+        KeyType: HASH
+
+    BillingMode: PAY_PER_REQUEST
+
+orderTable:
+  Type: AWS::DynamoDB::Table
+  Properties:
+    AttributeDefinitions:
+      - AttributeName: "pk"
+        AttributeType: "S"
+      - AttributeName: "sk"
+        AttributeType: "S"
+      - AttributeName: "bookId"
+        AttributeType: "S"
+      - AttributeName: "createdAt"
+        AttributeType: "S"
+    KeySchema:
+      - AttributeName: "pk"
+        KeyType: HASH
+      - AttributeName: "sk"
+        KeyType: RANGE
+
+    # With the main HASH and RANGE key above, we can query for a certain user. With the GlobalSecondaryIndexes we want to query by the bookId also.
+    GlobalSecondaryIndexes:
+      - IndexName: byOrder
+        KeySchema:
+          - AttributeName: "bookId"
+            KeyType: HASH
+          - AttributeName: "createdAt"
+            KeyType: RANGE
+        # how many attributes are being copied over from main table to index
+        Projection:
+          ProjectionType: ALL
+
+    BillingMode: PAY_PER_REQUEST
+
+# To store users, we need a cognito user pool
+cognitoUserPool:
+  Type: AWS::Cognito::UserPool
+  Properties:
+    UserPoolName: Robin UserPool
+    UsernameAttributes:
+      - email
+
+# to make cogitoUserPool communicate/connect with the client we need to setup UserPoolClient
+cognitoUserPoolClient:
+  Type: AWS::Cognito::UserPoolClient
+  Properties:
+    ClientName: Robin UserPool client
+    UserPoolId: !Ref cognitoUserPool
+
+# userpool for ADMINS
+cognitoAdminGroup:
+  Type: AWS::Cognito::UserPoolGroup
+  Properties:
+    Description: Group for admins
+    GroupName: admin
+    Precedence: 0
+    RoleArn: !GetAtt cognitoAdminIAMRole.Arn
+    UserPoolId: !Ref cognitoUserPool
+
+# create a specific IAM-role which we rill reference to userpool cognitoAdminGroup
+cognitoAdminIAMRole:
+  Type: AWS::IAM::Role
+  Properties:
+    AssumeRolePolicyDocument:
+      Version: "2012-10-17"
+      Statement:
+        Effect: "Allow"
+        Principal:
+          Service:
+            - ec2.amazonaws.com
+        Action:
+          - "sts:AssumeRoleWithWebIdentity"
+
+    Description: This is the IAM role that admin users assume
+    Policies:
+      - PolicyName: "bookstore-admin-group-policy"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            Effect: "Allow"
+            Action:
+              - dynamodb:*
+            Resource:
+              - !GetAtt bookTable.Arn
+              - !GetAtt orderTable.Arn
+    RoleName: bookstore-admin-role
+
+# userpool for CUSTOMER
+cognitoCustomerGroup:
+  Type: AWS::Cognito::UserPoolGroup
+  Properties:
+    Description: Group for customer
+    GroupName: customer
+    Precedence: 1
+    RoleArn: !GetAtt cognitoUserIAMRole.Arn
+    UserPoolId: !Ref cognitoUserPool
+
+# create a specific IAM-role which we rill reference to userpool cognitoCustomerGroup
+cognitoUserIAMRole:
+  Type: AWS::IAM::Role
+  Properties:
+    AssumeRolePolicyDocument:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+              - ec2.amazonaws.com
+          Action:
+            - "sts:AssumeRoleWithWebIdentity"
+    Description: This is the IAM role that customer users assume
+    Policies:
+      - PolicyName: "bookstore-customer-group-policy"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:*
+              Resource:
+                - !GetAtt orderTable.Arn
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:Query
+                - dynamodb:BatchGetItem
+              Resource:
+                - !GetAtt bookTable.Arn
+    RoleName: bookstore-customer-role
