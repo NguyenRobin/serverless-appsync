@@ -4,26 +4,24 @@ schema {
   mutation: Mutation
 }
 
-# Define all our query of our application. 
+# Define all our query of our application.
 type Query {
   getBookById(bookId: ID!): Book! # must return a Book type
-
   # instead of returning an array of [Book]. we will use pagination. If we have 1000 books it will take a lot of time to query. So by pagination we will load the books page by page. (performance).
 
-  # When we ask for a list of books, we're going to pass in a limit. The limit could for example be 20 books. The we can use dynamoDB SDK to only return 20 books. then when we are asking for the NEXT 20 books, we need to pass in the nextToken. So dynamoDB will return the 20 first book + a nextToken which we till use in the next request. Both SCAN and QUERY operation supports pagination. 
+  # When we ask for a list of books, we're going to pass in a limit. The limit could for example be 20 books. The we can use dynamoDB SDK to only return 20 books. then when we are asking for the NEXT 20 books, we need to pass in the nextToken. So dynamoDB will return the 20 first book + a nextToken which we till use in the next request. Both SCAN and QUERY operation supports pagination.
   listBooks(limit: Int!, nextToken: String): BooksPage!
 
-  myOrders(limit: Int!, nextToken:String): OrderItemsPage!
-
+  myOrders(limit: Int!, nextToken: String): OrderItemsPage!
 }
 
 type OrderItemsPage {
-  orderItems: [orderItems]
+  orderItems: [OrderItem]
   nextToken: String
 }
 
 type OrderItem {
-  userId: ID! 
+  userId: ID!
   orderId: ID!
   book: Book!
   quantity: Int!
@@ -45,14 +43,14 @@ type Book {
   updatedAt: AWSDateTime!
 }
 
-# Define all our mutations of our application. 
+# Define all our mutations of our application.
 type Mutation {
-  # referencing that only the admin group we created are allowed to use this. 
-  createBook(newBook: BookInput): Book! @aws_auth(cognito_groups: ['admin'])
+  # referencing that only the admin group we created are allowed to use this.
+  createBook(newBook: BookInput): Book! @aws_auth(cognito_groups: ["admin"])
   createOrder(newOrder: OrderInput): Boolean!
 }
 
-# The input type is often used with Mutations when you are passing along the input needed to make this mutation. 
+# The input type is often used with Mutations when you are passing along the input needed to make this mutation.
 
 # Input types are commonly used with Mutations to encapsulate and pass along the necessary input
 # required to perform the mutation. This helps organize and structure complex data sets, making
@@ -63,12 +61,12 @@ input OrderInput {
 
 input OrderItemInput {
   bookId: ID!
-  quantity Int!
+  quantity: Int!
 }
 
 input BookInput {
   title: String!
-  description: String! 
+  description: String!
   imageUrl: AWSURL
   author: String
   price: Float!
